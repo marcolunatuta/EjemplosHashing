@@ -1,56 +1,70 @@
 ﻿using System.Security.Cryptography;
-using System.Text;
 
 namespace EjemplosHashing.Helpers.Crypto
 {
     public class Simetrico
     {
+        private const string Key = "VX+F4gPX45XqG0jUk0mu5MlbisjMJBIB+r6iHOYihCg=";
+        private const string IV = "6+0hjk/hXRxPRAzD/SKqdw==";
+
         public static void PruebaSimetricoAes()
         {
-            string key = "EstaEsMiClaveSecreta|YTeAguantas"; // Debe ser una clave segura
             string plainText = "Hola, este es un mensaje secreto.";
+            Console.WriteLine("Texto a cifrar: " + plainText);
 
-            string encryptedText = Encrypt(plainText, key);
+            var encryptedText = Encrypt(plainText, Convert.FromBase64String(Key), Convert.FromBase64String(IV));
             Console.WriteLine("Texto cifrado: " + encryptedText);
-
-            string decryptedText = Decrypt(encryptedText, key);
+            string decryptedText = Decrypt(encryptedText, Convert.FromBase64String(Key), Convert.FromBase64String(IV));
             Console.WriteLine("Texto descifrado: " + decryptedText);
         }
 
-        private static string Encrypt(string plainText, string key)
+        private static string Encrypt(string plainText, byte[] key, byte[] iv)
         {
+            byte[] encryptedData;
+
             using Aes aesAlg = Aes.Create();
-            var arreglo = Encoding.UTF8.GetBytes(key);
-            aesAlg.Key = arreglo;
-            aesAlg.GenerateIV();
+            aesAlg.Key = key;
+            aesAlg.IV = iv;
 
             ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
 
-            using MemoryStream msEncrypt = new();
-            using CryptoStream csEncrypt = new(msEncrypt, encryptor, CryptoStreamMode.Write);
-            using StreamWriter swEncrypt = new(csEncrypt);
-            swEncrypt.Write(plainText);
+            using (MemoryStream msEncrypt = new())
+            {
+                using CryptoStream csEncrypt = new(msEncrypt, encryptor, CryptoStreamMode.Write);
+                using (StreamWriter swEncrypt = new(csEncrypt))
+                {
+                    swEncrypt.Write(plainText);
+                }
 
-            byte[] iv = aesAlg.IV;
-            byte[] encryptedData = msEncrypt.ToArray();
-            return Convert.ToBase64String(iv.Concat(encryptedData).ToArray());
+                encryptedData = msEncrypt.ToArray();
+            }
+
+            return Convert.ToBase64String(encryptedData);
         }
 
-        private static string Decrypt(string cipherText, string key)
+        private static string Decrypt(string cipherData, byte[] key, byte[] iv)
         {
-            using Aes aesAlg = Aes.Create();
-            byte[] iv = Convert.FromBase64String(cipherText).ToArray();
-            byte[] cipherBytes = Convert.FromBase64String(cipherText).Skip(16).ToArray();
+            byte[] cipherText = Convert.FromBase64String(cipherData);
 
-            aesAlg.Key = Encoding.UTF8.GetBytes(key);
+            using Aes aesAlg = Aes.Create();
+
+            aesAlg.Key = key;
             aesAlg.IV = iv;
 
             ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
 
-            using MemoryStream msDecrypt = new(cipherBytes);
+            using MemoryStream msDecrypt = new(cipherText);
             using CryptoStream csDecrypt = new(msDecrypt, decryptor, CryptoStreamMode.Read);
             using StreamReader srDecrypt = new(csDecrypt);
             return srDecrypt.ReadToEnd();
+        }
+
+        private static byte[] GenerateRandomBytes(int length)
+        {
+            Random random = new();
+            byte[] buffer = new byte[length];
+            random.NextBytes(buffer);
+            return buffer;
         }
     }
 }
